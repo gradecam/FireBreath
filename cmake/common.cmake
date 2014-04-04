@@ -291,7 +291,7 @@ function (fb_check_boost)
 endfunction()
 
 MACRO(ADD_PRECOMPILED_HEADER PROJECT_NAME PrecompiledHeader PrecompiledSource SourcesVar)
-    IF(MSVC)
+    IF(MSVC AND NOT NOPCH)
         GET_FILENAME_COMPONENT(PrecompiledBasename ${PrecompiledHeader} NAME_WE)
         SET(__PrecompiledBinary "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${PrecompiledBasename}.pch")
 
@@ -301,7 +301,7 @@ MACRO(ADD_PRECOMPILED_HEADER PROJECT_NAME PrecompiledHeader PrecompiledSource So
 
         SET_SOURCE_FILES_PROPERTIES(${PrecompiledSource}
             PROPERTIES COMPILE_FLAGS "/Yc\"${PrecompiledBasename}.h\"")
-    elseif (APPLE)
+    elseif (APPLE AND NOT NOPCH)
         message("Setting precompiled header ${PrecompiledHeader} on ${PROJECT_NAME}")
         SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES XCODE_ATTRIBUTE_GCC_PRECOMPILE_PREFIX_HEADER YES)
         SET_TARGET_PROPERTIES(${PROJECT_NAME} PROPERTIES XCODE_ATTRIBUTE_GCC_PREFIX_HEADER "${PrecompiledHeader}")
