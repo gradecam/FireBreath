@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -ef
 
 GEN='Eclipse CDT4 - Unix Makefiles'
 
