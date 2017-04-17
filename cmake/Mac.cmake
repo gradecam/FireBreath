@@ -87,8 +87,9 @@ MACRO(add_mac_plugin PROJECT_NAME PLIST_TEMPLATE STRINGS_TEMPLATE LOCALIZED_TEMP
     # Compile the resource file
     firebreath_find_commands()
     set(RC_COMPILER ${CMD_REZ})
+    
     execute_process(COMMAND
-        ${RC_COMPILER} ${RCFILES} -useDF ${ARCHS} -arch x86_64 -o ${CMAKE_CURRENT_BINARY_DIR}/bundle/English.lproj/Localized.rsrc -is ${CMAKE_OSX_SYSROOT}
+	    ${RC_COMPILER} ${RCFILES} -useDF ${ARCHS} -arch x86_64 -F "${OSX_FRAMEWORKS}" -o ${CMAKE_CURRENT_BINARY_DIR}/bundle/English.lproj/Localized.rsrc
         )
 
     set_source_files_properties(
@@ -134,6 +135,8 @@ MACRO(firebreath_find_commands)
     find_program(CMD_SETFILE SetFile ${XCODE_TOOLS_PATHS} )
     find_program(CMD_DEREZ DeRez ${XCODE_TOOLS_PATHS} )
     find_program(CMD_REZ Rez ${XCODE_TOOLS_PATHS} )
+
+    set(OSX_FRAMEWORKS "${CMAKE_OSX_SYSROOT}/System/Library/Frameworks")
 
 ENDMACRO(firebreath_find_commands)
 
