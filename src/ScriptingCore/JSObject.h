@@ -18,6 +18,8 @@ Copyright 2009 Richard Bateman, Firebreath development team
 
 #include "JSAPI.h"
 #include "BrowserHost.h"
+#include "variant_list.h"
+#include "variant_map.h"
 #include <iterator>
 
 namespace FB
@@ -87,17 +89,20 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void InvokeAsync(const std::string& methodName, const std::vector<variant>& args)
         {
-            if (m_host.expired()) {
+            BrowserHostPtr host(m_host.lock());
+            if (!host) {
                 throw std::runtime_error("Cannot invoke asynchronously");
             }
-            
-            getHost()->ScheduleOnMainThread(shared_from_this(), boost::bind(&JSObject::_invokeAsync, this, args, methodName));
+            host->ScheduleOnMainThread(shared_from_this(), boost::bind(&JSObject::_invokeAsync, this, args, methodName));
         }
 
     private:
         virtual void _invokeAsync(const std::vector<variant>& args, const std::string& methodName)
         {
-            getHost()->delayedInvoke(0, shared_from_this(), args, methodName);
+            BrowserHostPtr host(m_host.lock());
+            if (host) {
+                host->delayedInvoke(0, shared_from_this(), args, methodName);
+            }
         }
     public:
         
@@ -112,10 +117,11 @@ namespace FB
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual void SetPropertyAsync(const std::string& propertyName, const variant& value)
         {
-            if (m_host.expired()) {
+            BrowserHostPtr host(m_host.lock());
+            if (!host) {
                 throw std::runtime_error("Cannot invoke asynchronously");
             }
-            getHost()->ScheduleOnMainThread(shared_from_this(), boost::bind((FB::SetPropertyType)&JSAPI::SetProperty, this, propertyName, value));
+            host->ScheduleOnMainThread(shared_from_this(), boost::bind((FB::SetPropertyType)&JSAPI::SetProperty, this, propertyName, value));
         }
     public:
         ////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -220,6 +226,41 @@ namespace FB
             else
                 return variant(FB::FBNull());
         }
+
+            template<class Cont>
+            typename boost::enable_if<
+                boost::mpl::and_<
+                    FB::meta::is_non_assoc_container<Cont>,
+                    boost::mpl::not_<
+                        boost::mpl::or_<
+                               boost::mpl::or_<
+                                   boost::is_same<std::vector<variant>, Cont>,
+                                   boost::is_same<std::map<std::string, variant>, Cont>
+                                >,
+                            boost::mpl::or_<
+                                   boost::is_same<std::wstring, Cont>,
+                                   boost::is_same<std::string, Cont>
+                                >
+                            >
+                    >
+                >
+             ,variant>::type
+             make_variant(const Cont& var) {
+            return make_variant_list(var);
+        }
+
+            template<class Dict>
+            typename boost::enable_if<
+                boost::mpl::and_<
+                    FB::meta::is_pair_assoc_container<Dict>,
+                    boost::mpl::not_<
+                            boost::is_same<std::map<std::string, variant>, Dict>
+                    >
+                >
+             ,variant>::type
+             make_variant(const Dict& var) {
+                      return make_variant_map(var);
+             }
 
         // Convert out
         template<class T>

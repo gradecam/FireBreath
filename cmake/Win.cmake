@@ -15,7 +15,11 @@
 # Find ATL stuff
 
 if (NOT VC_DIR)
-    if (MSVC10)
+    if (MSVC12)
+        GET_FILENAME_COMPONENT(VS_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\12.0\\Setup\\VS;ProductDir]" REALPATH CACHE)
+    elseif (MSVC11)
+        GET_FILENAME_COMPONENT(VS_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\11.0\\Setup\\VS;ProductDir]" REALPATH CACHE)
+    elseif (MSVC10)
         GET_FILENAME_COMPONENT(VS_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\10.0\\Setup\\VS;ProductDir]" REALPATH CACHE)
     elseif (MSVC90)
         GET_FILENAME_COMPONENT(VS_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\VisualStudio\\9.0\\Setup\\VS;ProductDir]" REALPATH CACHE)
@@ -125,7 +129,7 @@ if (NOT ATL_INCLUDE_DIR)
         GET_FILENAME_COMPONENT(MFC_INCLUDE_DIR ${MFCWIN} PATH CACHE)
         message("-- Found MFC include dir: ${MFC_INCLUDE_DIR}")
     else()
-        message(FATAL_ERROR "FireBreath on windows requires ATL/MFC libs to be installed.  Please download the Microsoft DDK and install the build environments in $ENV{SystemDrive}\\WinDDK")
+        message("!! WARNING: Could not find MFC, this might or might not be a problem.")
     endif()
 
 endif()
@@ -134,6 +138,20 @@ set(ATL_INCLUDE_DIRS
     ${MFC_INCLUDE_DIR}
     CACHE INTERNAL "ATL and MFC include dirs")
 
+option(WITH_FBWIN_ASYNCSURFACE "Build with async surface drawing support" OFF)
+
+if(WITH_FBWIN_ASYNCSURFACE)
+    message("Async surface drawing enabled")
+    add_definitions(-DFBWIN_ASYNCSURFACE)
+else()
+    message("Async surface drawing not enabled")
+endif()
+
+####
+
+IF(NOT DEFINED CMAKE_MAKECAB)
+	SET(CMAKE_MAKECAB makecab)
+ENDIF(NOT DEFINED CMAKE_MAKECAB)
 
 MACRO(add_windows_plugin PROJNAME INSOURCES)
     set(SOURCES
@@ -159,8 +177,10 @@ macro(firebreath_sign_file PROJNAME _FILENAME PFXFILE PASSFILE TIMESTAMP_URL)
         if (EXISTS ${PFXFILE})
             message("-- ${_FILENAME} will be signed with ${PFXFILE}")
             GET_FILENAME_COMPONENT(WINSDK_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Microsoft SDKs\\Windows;CurrentInstallFolder]" REALPATH CACHE)
+            GET_FILENAME_COMPONENT(WINKIT_DIR "[HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows Kits\\Installed Roots;KitsRoot]" REALPATH CACHE)
             find_program(SIGNTOOL signtool
                 PATHS
+                ${WINKIT_DIR}/bin/x64
                 ${WINSDK_DIR}/bin
                 )
             if (SIGNTOOL)
@@ -178,18 +198,19 @@ macro(firebreath_sign_file PROJNAME _FILENAME PFXFILE PASSFILE TIMESTAMP_URL)
                     POST_BUILD
                     COMMAND ${_STCMD}
                     )
-                message("-- Successfully added signtool step to sign ${_FILENAME}")
+                message(STATUS "Successfully added signtool step to sign ${_FILENAME}")
             else()
-                message("Could not find signtool! Code signing disabled ${SIGNTOOL}")
+                message("!! Could not find signtool! Code signing disabled ${SIGNTOOL}")
             endif()
             set(PASSPHRASE "")
         else()
-            message("-- No signtool certificate found; assuming development machine (${PFXFILE})")
+            message(STATUS "No signtool certificate found; assuming development machine (${PFXFILE})")
         endif()
 
     endif()
 endmacro(firebreath_sign_file)
 
+set(SUFFIX ".dll")
 macro(firebreath_sign_plugin PROJNAME PFXFILE PASSFILE TIMESTAMP_URL)
     if (WIN32)
         get_target_property(ONAME ${PROJNAME} OUTPUT_NAME)
@@ -254,6 +275,70 @@ function (add_wix_installer PROJNAME WIX_SOURCEFILES WIX_COMPGROUP WIX_OUTDIR WI
         WIX_LINK(${PROJNAME}${FB_WIX_SUFFIX} ${WIX_DEST} WIX_FULLOBJLIST NONE)
 
         ADD_DEPENDENCIES(${PROJNAME}${FB_WIX_SUFFIX} ${WIX_PROJDEP})
-
+        
+        # Create the EXE wrapper
+        	
+        if (FB_WIX_EXEDEST)
+            SET (WIX_EXEDEST ${FB_WIX_EXEDEST})
+        else()
+            SET (WIX_EXEDEST ${WIX_OUTDIR}/${PROJNAME}.exe)
+        endif()
+        		
+        if (NOT FB_WIX_EXE_SUFFIX)
+            set (FB_WIX_EXE_SUFFIX _WiXInstallExe)
+        endif()
+        	
+        set (WIX_EXESOURCES
+                ${FB_ROOT}/cmake/dummy.cpp
+                ${WIX_DEST}
+            )
+        ADD_LIBRARY(${PROJNAME}${FB_WIX_EXE_SUFFIX} STATIC ${WIX_EXESOURCES})
+        
+        WIX_SETUPBLD(${PROJNAME}${FB_WIX_EXE_SUFFIX} ${WIX_EXEDEST} ${WIX_DEST})
+        
+        ADD_DEPENDENCIES(${PROJNAME}${FB_WIX_EXE_SUFFIX} ${PROJNAME}${FB_WIX_SUFFIX})
     endif()
 endfunction(add_wix_installer)
+
+function (create_cab PROJNAME DDF CAB_SOURCEFILES CAB_OUTDIR PROJDEP)
+	GET_FILENAME_COMPONENT(_tmp_File ${DDF} NAME)
+    configure_file(${DDF} ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File})
+    message("Configuring ${DDF} -> ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File}")
+    set(CAB_DDF ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File})
+    
+    set(SOURCELIST ${CAB_DDF})
+    FOREACH(_curFile ${CAB_SOURCEFILES})
+        GET_FILENAME_COMPONENT(_tmp_File ${_curFile} NAME)
+        configure_file(${_curFile} ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File})
+        message("Configuring ${_curFile} -> ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File}")
+        set(SOURCELIST ${SOURCELIST} ${CMAKE_CURRENT_BINARY_DIR}/${_tmp_File})
+    ENDFOREACH()
+    
+    set (WIX_SOURCES
+            ${FB_ROOT}/cmake/dummy.cpp
+    		${DDF}
+    		${CAB_SOURCEFILES}
+            ${SOURCELIST}
+        )
+    
+    if (FB_CAB_DEST)
+        SET (CAB_DEST ${FB_CAB_DEST})
+    else()
+        SET (CAB_DEST ${CAB_OUTDIR}/${PROJNAME}.cab)
+    endif()
+	
+	FILE(RELATIVE_PATH CAB_NAME ${CAB_OUTDIR} ${CAB_DEST})
+     
+    if (NOT FB_CAB_SUFFIX)
+        set (FB_CAB_SUFFIX _Cab)
+    endif()
+    	
+    ADD_LIBRARY(${PROJNAME}${FB_CAB_SUFFIX} STATIC ${WIX_SOURCES})
+    ADD_CUSTOM_COMMAND( TARGET    ${PROJNAME}${FB_CAB_SUFFIX} POST_BUILD
+        COMMAND   ${CMAKE_MAKECAB}
+        ARGS      /D "OUTDIR=${CAB_OUTDIR}" /D "NAME=${CAB_NAME}" /F "${CAB_DDF}"
+        DEPENDS   ${SOURCELIST}
+        COMMENT   "Create Cab ${CAB_DEST}"
+        )
+    ADD_DEPENDENCIES(${PROJNAME}${FB_CAB_SUFFIX} ${PROJDEP})
+endfunction(create_cab)

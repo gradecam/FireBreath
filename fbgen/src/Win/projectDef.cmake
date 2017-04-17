@@ -10,6 +10,7 @@
 file (GLOB PLATFORM RELATIVE ${CMAKE_CURRENT_SOURCE_DIR}
     Win/[^.]*.cpp
     Win/[^.]*.h
+    Win/[^.]*.rc
     Win/[^.]*.cmake
     )
 
@@ -71,3 +72,12 @@ add_wix_installer( ${PLUGIN_NAME}
 #    "${CMAKE_CURRENT_SOURCE_DIR}/sign/certificate.pfx"
 #    "${CMAKE_CURRENT_SOURCE_DIR}/sign/passphrase.txt"
 #    "http://timestamp.verisign.com/scripts/timestamp.dll")
+
+# This is an example of how to create a cab
+# -- uncomment lines below this to enable signing --
+#create_cab(${PLUGIN_NAME}
+#    ${CMAKE_CURRENT_SOURCE_DIR}/Win/Wix/@{PLUGIN_ident}.ddf
+#    ${CMAKE_CURRENT_SOURCE_DIR}/Win/Wix/@{PLUGIN_ident}.inf
+#    ${FB_BIN_DIR}/${PLUGIN_NAME}/${CMAKE_CFG_INTDIR}/
+#    ${PROJECT_NAME}_WiXInstallExe
+#    )

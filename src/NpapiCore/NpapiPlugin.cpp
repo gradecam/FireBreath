@@ -19,7 +19,9 @@ Copyright 2009 Richard Bateman, Firebreath development team
 #include "BrowserHost.h"
 #include "precompiled_headers.h" // On windows, everything above this line in PCH
 
+#include "BrowserStreamRequest.h"
 #include "NpapiPlugin.h"
+#include "PluginEventSink.h"
 using namespace FB::Npapi;
 
 NpapiPlugin::NpapiPlugin(const NpapiBrowserHostPtr& host, const std::string& mimetype)
@@ -81,19 +83,6 @@ void NpapiPlugin::init(NPMIMEType pluginType, int16_t argc, char* argn[], char *
         }
     }
     pluginMain->setParams(paramList);
-    if(!FB::pluginGuiEnabled() || pluginMain->isWindowless()) {
-        /* Windowless plugins require negotiation with the browser.
-        * If the plugin does not set this value it is assumed to be
-        * a windowed plugin.
-        * See: https://developer.mozilla.org/en/Gecko_Plugin_API_Reference/Drawing_and_Event_Handling
-        */
-#ifndef XP_MACOSX
-        // We don't want to set these if we're in Mac OS X, otherwise Firefox 3.5 will deliver us a
-        // null window->window in NPP_SetWindow().
-        m_npHost->SetValue(NPPVpluginWindowBool, (void*)false);
-        m_npHost->SetValue(NPPVpluginTransparentBool, (void*)true); // Set transparency to true
-#endif
-    }
     setReady();
 }
 
@@ -117,18 +106,18 @@ NPError NpapiPlugin::GetValue(NPPVariable variable, void *value)
     switch (variable) {
     case NPPVpluginNameString:
         *((const char **)value) = m_pluginName.c_str();
-        FBLOG_INFO("PluginCore", "GetValue(NPPVpluginNameString)");
+        FBLOG_TRACE("PluginCore", "GetValue(NPPVpluginNameString)");
         break;
     case NPPVpluginDescriptionString:
         *((const char **)value) = m_pluginDesc.c_str();
-        FBLOG_INFO("PluginCore", "GetValue(NPPVpluginDescriptionString)");
+        FBLOG_TRACE("PluginCore", "GetValue(NPPVpluginDescriptionString)");
         break;
     case NPPVpluginScriptableNPObject:
         *(NPObject **)value = getScriptableObject();
-        FBLOG_INFO("PluginCore", "GetValue(NPPVpluginScriptableNPObject)");
+        FBLOG_TRACE("PluginCore", "GetValue(NPPVpluginScriptableNPObject)");
         break;
     default:
-        FBLOG_INFO("PluginCore", "GetValue(Unknown)");
+        FBLOG_TRACE("PluginCore", "GetValue(Unknown)");
         return NPERR_GENERIC_ERROR;
     }
     return NPERR_NO_ERROR;
@@ -164,7 +153,7 @@ see if the plug-in can receive data again by resending the data at regular inter
 */
 int32_t NpapiPlugin::WriteReady(NPStream* stream)
 {
-    NpapiStream* s = static_cast<NpapiStream*>( stream->notifyData );
+    NpapiStream* s = static_cast<NpapiStream*>( stream->pdata );
     // check for streams we did not request or create
     if ( !s ) return -1;
 
@@ -191,7 +180,7 @@ byte range requests, you can use this parameter to track NPN_RequestRead request
 */
 int32_t NpapiPlugin::Write(NPStream* stream, int32_t offset, int32_t len, void* buffer)
 {
-    NpapiStream* s = static_cast<NpapiStream*>( stream->notifyData );
+    NpapiStream* s = static_cast<NpapiStream*>( stream->pdata );
     // check for streams we did not request or create
     if ( !s ) return -1;
 
@@ -207,7 +196,7 @@ If an error occurs while retrieving the data or writing the file, the file name 
 */
 void NpapiPlugin::StreamAsFile(NPStream* stream, const char* fname)
 {
-    NpapiStream* s = static_cast<NpapiStream*>( stream->notifyData );
+    NpapiStream* s = static_cast<NpapiStream*>( stream->pdata );
     // check for streams we did not request or create
     if ( !s ) return;
 
@@ -309,9 +298,43 @@ NPN_DestroyStream.
 */
 NPError NpapiPlugin::NewStream(NPMIMEType type, NPStream* stream, NPBool seekable, uint16_t* stype)
 {
-    NpapiStream* s = static_cast<NpapiStream*>( stream->notifyData );
+    if (stream->notifyData && !stream->pdata) stream->pdata = stream->notifyData;
+
+    NpapiStream* s = static_cast<NpapiStream*>( stream->pdata );
     // check for streams we did not request or create
-    if ( !s ) return NPERR_NO_DATA;
+    if ( !s )
+    {
+        // Create a BrowserStreamRequest; only GET is supported
+        BrowserStreamRequest streamReq(stream->url, "GET", false);
+        streamReq.setLastModified(stream->lastmodified);
+		if (stream->headers) {
+			streamReq.setHeaders(stream->headers);
+		}
+        streamReq.setSeekable(seekable != 0);
+
+        pluginMain->handleUnsolicitedStream(streamReq);
+
+        FB::BrowserStreamPtr newstream;
+        if (streamReq.wasAccepted()) {
+            newstream = m_npHost->createUnsolicitedStream(streamReq);
+            PluginEventSinkPtr sink(streamReq.getEventSink());
+            if (sink) {
+                newstream->AttachObserver(sink);
+            } else {
+                HttpCallback callback(streamReq.getCallback());
+                if (callback) {
+                    SimpleStreamHelper::AsyncRequest(m_npHost, newstream, streamReq);
+                } else {
+                    FBLOG_WARN("NpapiPlugin", "Unsolicited request accepted but no callback or sink provided");
+                }
+            }
+            // continue function using the newly created stream object
+            s = dynamic_cast<NpapiStream*> ( newstream.get() );
+            stream->pdata = static_cast<void*>( s );
+        }
+    }
+
+    if ( !s ) return NPERR_NO_ERROR;
 
     s->setMimeType( type );
     s->setStream( stream );
@@ -358,11 +381,12 @@ any further references to the stream object.
 */
 NPError NpapiPlugin::DestroyStream(NPStream* stream, NPReason reason)
 {
-    NpapiStream* s = static_cast<NpapiStream*>( stream->notifyData );
+    NpapiStream* s = static_cast<NpapiStream*>( stream->pdata );
     // check for streams we did not request or create
     if ( !s || !s->getStream() ) return NPERR_NO_ERROR;
 
     s->setStream( 0 );
+    stream->pdata = 0;
     stream->notifyData = 0;
 
     if ( !s->isCompleted() ) s->signalCompleted( reason == NPRES_DONE );

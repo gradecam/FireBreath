@@ -61,7 +61,10 @@ namespace FB { namespace DOM {
         ///
         /// @return FB::DOM::DocumentPtr to the created Document object
         ////////////////////////////////////////////////////////////////////////////////////////////////////
-        static DocumentPtr create(const FB::JSObjectPtr &api) { return api->getHost()->_createDocument(api); }
+        static DocumentPtr create(const FB::JSObjectPtr &api) {
+			if (!api) { return DocumentPtr(); }
+			return api->getHost()->_createDocument(api);
+		}
 
     public:
 
@@ -73,6 +76,15 @@ namespace FB { namespace DOM {
         /// @return The window. 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         virtual WindowPtr getWindow() const;
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        /// @fn virtual ElementPtr Document::getHead() const
+        ///
+        /// @brief  Gets a DOM::ElementPtr for the document's head.
+        ///
+        /// @return The document's head.
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+        virtual ElementPtr getHead() const;
 
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         /// @fn virtual ElementPtr Document::getBody() const

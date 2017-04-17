@@ -13,6 +13,7 @@ Copyright 2009 PacketPass Inc, Georg Fritzsche,
                Firebreath development team
 \**********************************************************/
 
+#include <boost/type_traits.hpp>
 #import <AppKit/AppKit.h>
 
 #include "Mac/PluginWindowMac.h"
@@ -223,7 +224,7 @@ bool BasicMediaPlayerPluginMac::onDrawQD(FB::QuickDrawDraw *evt, FB::PluginWindo
 bool BasicMediaPlayerPluginMac::onDrawCG(FB::CoreGraphicsDraw *evt, FB::PluginWindowMacCG*)
 {
     FB::Rect bounds(evt->bounds);
-    FB::Rect clip(evt->clip);
+    //FB::Rect clip(evt->clip);
     CGContextRef cgContext(evt->context);
 
 #if 0
@@ -248,7 +249,7 @@ bool BasicMediaPlayerPluginMac::onDrawCG(FB::CoreGraphicsDraw *evt, FB::PluginWi
         //CGContextScaleCTM(cgContext, 1.0, -1.0);
 
         // Clear the stage.
-        CGRect rect0 = { {0,0}, {width, height} };
+        //CGRect rect0 = { {0,0}, {width, height} };
         //CGContextClearRect(cgContext, rect0);
 
         // Draw UL Quadrant 25% Red

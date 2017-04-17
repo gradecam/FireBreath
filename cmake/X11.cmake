@@ -27,25 +27,33 @@ set(BUILD_SHARED_LIBS YES)
 # This long line is ugly, but breaking it up to multiple lines will 
 # break on cmake 2.6. LD_FLAGS will get separated by semi-colon 
 # which is not gcc compatible
-set(NPAPI_LINK_FLAGS "-Wl,--discard-all -Wl,-Bsymbolic -Wl,-z,defs -Wl,--version-script=${FB_ROOT_DIR}/gen_templates/version_script.txt")
+set(NPAPI_LINK_FLAGS "-Wl,--discard-all -Wl,-Bsymbolic -Wl,-z,defs -Wl,--version-script=\"${FB_ROOT_DIR}/gen_templates/version_script.txt\"")
 
-# GTK is required for XEmbed to work
-if (NOT FB_GUI_DISABLED)
-    if (NOT GTK_INCLUDE_DIRS)
-        pkg_check_modules(GTK REQUIRED gtk+-2.0)
-        set (GTK_INCLUDE_DIRS ${GTK_INCLUDE_DIRS} CACHE INTERNAL "GTK include dirs")
-        set (GTK_LIBRARIES ${GTK_LIBRARIES} CACHE INTERNAL "GTK include dirs")
-        set (GTK_LIBRARY_DIRS ${GTK_LIBRARY_DIRS} CACHE INTERNAL "GTK include dirs")
-        set (GTK_LDFLAGS ${GTK_LDFLAGS} CACHE INTERNAL "GTK include dirs")
+MACRO(find_firebreath_x11_deps)
+
+    # GTK is required for XEmbed to work
+    if (NOT FB_GUI_DISABLED)
+        if (NOT GTK_INCLUDE_DIRS)
+            pkg_check_modules(GTK REQUIRED gtk+-2.0)
+            set (GTK_INCLUDE_DIRS ${GTK_INCLUDE_DIRS} PARENT_SCOPE)
+            set (GTK_LIBRARIES ${GTK_LIBRARIES} PARENT_SCOPE)
+            set (GTK_LIBRARY_DIRS ${GTK_LIBRARY_DIRS} PARENT_SCOPE)
+            set (GTK_LDFLAGS ${GTK_LDFLAGS} PARENT_SCOPE)
+        endif()
+        set (FB_INCLUDE_DIRS ${FB_INCLUDE_DIRS} ${GTK_INCLUDE_DIRS})
+        set (PLUGIN_INTERNAL_DEPS ${PLUGIN_INTERNAL_DEPS} ${GTK_LIBRARIES} PARENT_SCOPE)
+    else()
+        set (GTK_INCLUDE_DIRS "")
+        set (GTK_LIBRARIES "")
+        set (GTK_LDFLAGS "")
     endif()
-    set (FB_INCLUDE_DIRS ${FB_INCLUDE_DIRS} ${GTK_INCLUDE_DIRS})
-else()
-    set (GTK_INCLUDE_DIRS "")
-    set (GTK_LIBRARIES "")
-    set (GTK_LDFLAGS "")
-endif()
+
+ENDMACRO(find_firebreath_x11_deps)
 
 MACRO(add_x11_plugin PROJNAME INSOURCES)
+
+    find_firebreath_x11_deps()
+
     add_definitions(
         -D"FB_X11=1"
     )
@@ -57,7 +65,7 @@ MACRO(add_x11_plugin PROJNAME INSOURCES)
     add_library(${PROJNAME} SHARED ${SOURCES})
 
     set_target_properties ("${PROJNAME}" PROPERTIES
-        OUTPUT_NAME np${PLUGIN_NAME}
+        OUTPUT_NAME ${FBSTRING_PluginFileName}
         PROJECT_LABEL "${PROJNAME}"
         LINK_FLAGS "${NPAPI_LINK_FLAGS}"
         PREFIX ""
@@ -66,6 +74,7 @@ MACRO(add_x11_plugin PROJNAME INSOURCES)
     )
 ENDMACRO(add_x11_plugin)
 
+set(SUFFIX ".so")
 function (add_rpm_package PROJNAME )
 
 endfunction(add_rpm_package)
@@ -78,7 +87,3 @@ function (add_deb_package PROJNAME )
 
 endfunction(add_deb_package)
 
-set (GUI_INCLUDE_DIRS ${GTK_INCLUDE_DIRS} CACHE INTERNAL "GTK include dirs")
-set (GUI_LIBRARIES ${GTK_LIBRARIES} CACHE INTERNAL "GTK include dirs")
-set (GUI_LIBRARY_DIRS ${GTK_LIBRARY_DIRS} CACHE INTERNAL "GTK include dirs")
-set (GUI_LDFLAGS ${GTK_LDFLAGS} CACHE INTERNAL "GTK include dirs")

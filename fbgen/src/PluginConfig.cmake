@@ -26,20 +26,37 @@ set(FBControl_GUID @{GUIDS_CONTROL})
 set(IFBComJavascriptObject_GUID @{GUIDS_JSIF})
 set(FBComJavascriptObject_GUID @{GUIDS_JSOBJ})
 set(IFBComEventSource_GUID @{GUIDS_EVTSRC})
+if ( FB_PLATFORM_ARCH_32 )
+    set(FBControl_WixUpgradeCode_GUID @{GUIDS_INSTUPGR})
+else ( FB_PLATFORM_ARCH_32 )
+    set(FBControl_WixUpgradeCode_GUID @{GUIDS_INSTUPGR64})
+endif ( FB_PLATFORM_ARCH_32 )
 
 # these are the pieces that are relevant to using it from Javascript
 set(ACTIVEX_PROGID "@{COMPANY_ident}.@{PLUGIN_ident}")
-set(MOZILLA_PLUGINID "@{COMPANY_domain}/@{PLUGIN_ident}")
+if ( FB_PLATFORM_ARCH_32 )
+    set(MOZILLA_PLUGINID "@{COMPANY_domain}/@{PLUGIN_ident}")  # No 32bit postfix to maintain backward compatability.
+else ( FB_PLATFORM_ARCH_32 )
+    set(MOZILLA_PLUGINID "@{COMPANY_domain}/@{PLUGIN_ident}_${FB_PLATFORM_ARCH_NAME}")
+endif ( FB_PLATFORM_ARCH_32 )
 
 # strings
 set(FBSTRING_CompanyName "@{COMPANY_name}")
 set(FBSTRING_PluginDescription "@{PLUGIN_desc}")
 set(FBSTRING_PLUGIN_VERSION "1.0.0.0")
 set(FBSTRING_LegalCopyright "Copyright @{YEAR} @{COMPANY_name}")
-set(FBSTRING_PluginFileName "np${PLUGIN_NAME}.dll")
+set(FBSTRING_PluginFileName "np${PLUGIN_NAME}")
+if (APPLE)
+    # On apple, np is not needed
+    set(FBSTRING_PluginFileName "${PLUGIN_NAME}")
+endif()
 set(FBSTRING_ProductName "@{PLUGIN_name}")
 set(FBSTRING_FileExtents "")
-set(FBSTRING_PluginName "@{PLUGIN_name}")
+if ( FB_PLATFORM_ARCH_32 )
+    set(FBSTRING_PluginName "@{PLUGIN_name}")  # No 32bit postfix to maintain backward compatability.
+else ( FB_PLATFORM_ARCH_32 )
+    set(FBSTRING_PluginName "@{PLUGIN_name}_${FB_PLATFORM_ARCH_NAME}")
+endif ( FB_PLATFORM_ARCH_32 )
 set(FBSTRING_MIMEType "@{PLUGIN_mimetype}")
 
 # Uncomment this next line if you're not planning on your plugin doing

@@ -23,6 +23,12 @@ endif()
 
 Project (FireBreath)
 
+# Allow super-projects to disable firebreath-specific git operations.
+if(NOT FIREBREATH_AUTO_GIT)
+    set(FIREBREATH_AUTO_GIT ON)
+endif()
+option(FIREBREATH_AUTO_GIT "Enable automatic git operations." ${FIREBREATH_AUTO_GIT})
+
 # First, find FB_ROOT
 get_filename_component(FB_ROOT ${CMAKE_CURRENT_LIST_FILE} PATH CACHE)
 
@@ -76,11 +82,24 @@ if (FIREBREATH_LIBDIR)
     include(${FIREBREATH_LIBDIR}/FireBreath_Exports.cmake)
 endif()
 
+if (WITH_SYSTEM_BOOST)
+    if ( APPLE )
+        SET(Boost_USE_STATIC_LIBS ON)
+    elseif (WIN32)
+        SET(Boost_USE_STATIC_LIBS ON)
+        if (WITH_DYNAMIC_MSVC_RUNTIME)
+            SET(Boost_USE_STATIC_RUNTIME OFF)
+        else (WITH_DYNAMIC_MSVC_RUNTIME)
+            SET(Boost_USE_STATIC_RUNTIME ON)
+        endif (WITH_DYNAMIC_MSVC_RUNTIME)
+    endif ()
+endif()
 add_boost_library(thread)
 add_boost_library(system)
-if (WITH_SYSTEM_BOOST)
-    add_boost_library(date_time)
-elseif(NOT FIREBREATH_LIBDIR)
+if (Boost_MAJOR_VERSION GREATER 0 AND Boost_MINOR_VERSION GREATER 47)
+    add_boost_library(chrono)
+endif ()
+if(NOT WITH_SYSTEM_BOOST AND NOT FIREBREATH_LIBDIR)
     export(TARGETS ${Boost_LIBRARIES} APPEND FILE ${FB_EXPORT_FILE})
 endif()
 

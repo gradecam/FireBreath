@@ -21,6 +21,14 @@ if (VERBOSE)
     message ("Generating project ${PROJECT_NAME} in ${CMAKE_CURRENT_BINARY_DIR}")
 endif()
 
+if (FB_GUI_DISABLED)
+    add_definitions(-DFB_GUI_DISABLED=1)
+endif()
+
+if (UNIX AND NOT APPLE)
+    find_firebreath_x11_deps()
+endif()
+
 include_directories(
     ${FB_GECKOSDK_SOURCE_DIR}
     ${GTK_INCLUDE_DIRS}
@@ -147,10 +155,16 @@ endif()
 # ActiveX Support
 ######
 if (WIN32)
+    if (FB_USE_PCH)
+        set(IDLC_EXT "cpp")
+    else()
+        set(IDLC_EXT "c")
+    endif()
+
     set (GENERATED_IDL
         "${FB_TEMPLATE_DEST_DIR}/FireBreathWin.tlb"
         "${FB_TEMPLATE_DEST_DIR}/FireBreathWin_i.h"
-        "${FB_TEMPLATE_DEST_DIR}/FireBreathWin_i.cpp"
+        "${FB_TEMPLATE_DEST_DIR}/FireBreathWin_i.${IDLC_EXT}"
         )
 
     SET (IDL_FILE ${FB_TEMPLATE_DEST_DIR}/FireBreathWin.idl)
@@ -159,7 +173,6 @@ if (WIN32)
         ${IDL_FILE}
         "${FB_TEMPLATE_DEST_DIR}/FireBreathWin.tlb"
         "${FB_TEMPLATE_DEST_DIR}/FireBreathWin_i.h"
-        "${FB_TEMPLATE_DEST_DIR}/FireBreathWin_p.cpp"
         PROPERTIES
             HEADER_FILE_ONLY 1
             GENERATED 1
@@ -180,8 +193,7 @@ if (WIN32)
             /out "${FB_TEMPLATE_DEST_DIR}" 
             /tlb "FireBreathWin.tlb"
             /h "FireBreathWin_i.h"
-            /iid "FireBreathWin_i.cpp"
-            /proxy "FireBreathWin_p.cpp"
+            /iid "FireBreathWin_i.${IDLC_EXT}"
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         DEPENDS ${IDL_FILE}
         )
@@ -205,6 +217,8 @@ set (SOURCES
     ${MAC_SOURCES}
     ${X11_SOURCES})
 
+# For proper log4cplus support we need unicode defined here.
+add_definitions (-DUNICODE -D_UNICODE -UMBCS -U_MBCS)
 
 add_library(${PROJECT_NAME} STATIC ${SOURCES})
 ADD_PRECOMPILED_HEADER(${PROJECT_NAME} "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_headers.h" "${CMAKE_CURRENT_SOURCE_DIR}/precompiled_headers.cpp" SOURCES)

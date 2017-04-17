@@ -114,6 +114,10 @@ namespace FB {
         ////////////////////////////////////////////////////////////////////////////////////////////////////
         static URI fromString(const std::string& in_str);
 
+        void addQueryData(const std::string& key, const std::string& val) {
+            query_data[key] = val;
+        }
+
         // The protocol used. e.g. "http", "https", "file", "ftp", etc
         std::string protocol;
         // The login name in the URI (if any)
@@ -169,6 +173,13 @@ namespace FB {
         /// @since 1.4b1
         //////////////////////////////////////////////////////////////////////////////
         std::string filename() const; // last path component; if the URI ends in a trailing slash, returns the empty string.
+        
+        //////////////////////////////////////////////////////////////////////////////
+        /// Returns current Directory from the url of the page
+        //////////////////////////////////////////////////////////////////////////////
+        std::string UrlDirectory() const; 
+        
+        
         //////////////////////////////////////////////////////////////////////////////
         /// Returns true if the URI appears to be a localhost address
         /// @see resetValidLocalhost

@@ -46,6 +46,7 @@ PluginWindowWin::PluginWindowWin(const WindowContextWin& ctx)
   , m_browserhWnd(NULL)
   , lpOldWinProc(NULL)
   , m_callOldWinProc(false)
+  , m_suppressEraseBackground(false)
 {
     // subclass window so we can intercept window messages 
     lpOldWinProc = SubclassWindow(m_hWnd, (WNDPROC)&PluginWindowWin::_WinProc);
@@ -119,10 +120,10 @@ bool PluginWindowWin::WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
                 << " value for hWnd=0x" << std::hex << hWnd);
 #endif
 			return true;
-		}
-        case WM_LBUTTONDOWN: 
+        }
+        case WM_LBUTTONDOWN:
         {
-            MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, 
+            MouseDownEvent ev(MouseButtonEvent::MouseButton_Left,
                               GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), modifierState);
             if(SendEvent(&ev))
                 return true;
@@ -139,6 +140,30 @@ bool PluginWindowWin::WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
         case WM_MBUTTONDOWN:
         {
             MouseDownEvent ev(MouseButtonEvent::MouseButton_Middle,
+                              GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), modifierState);
+            if(SendEvent(&ev))
+                return true;
+            break;
+        }
+        case WM_LBUTTONDBLCLK:
+        {
+            MouseDoubleClickEvent ev(MouseButtonEvent::MouseButton_Left,
+                              GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), modifierState);
+            if(SendEvent(&ev))
+                return true;
+            break;
+        }
+        case WM_RBUTTONDBLCLK:
+        {
+            MouseDoubleClickEvent ev(MouseButtonEvent::MouseButton_Right,
+                              GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), modifierState);
+            if(SendEvent(&ev))
+                return true;
+            break;
+        }
+        case WM_MBUTTONDBLCLK:
+        {
+            MouseDoubleClickEvent ev(MouseButtonEvent::MouseButton_Middle,
                               GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam), modifierState);
             if(SendEvent(&ev))
                 return true;
@@ -177,15 +202,46 @@ bool PluginWindowWin::WinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam
         }
         case WM_MOUSEWHEEL:
         {
-            MouseScrollEvent ev(GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam),
-                                0, GET_WHEEL_DELTA_WPARAM(wParam));
+            POINT p;
+            p.x = GET_X_LPARAM(lParam);
+            p.y = GET_Y_LPARAM(lParam);
+            ScreenToClient(hWnd, &p);
+
+            MouseScrollEvent ev(p.x, p.y,
+                                0, GET_WHEEL_DELTA_WPARAM(wParam) / (double) WHEEL_DELTA, modifierState);
             if(SendEvent(&ev))
                 return true;
             break;
         }
+#if _WIN32_WINNT > 0x0600
+        case WM_MOUSEHWHEEL:
+        {
+            POINT p;
+            p.x = GET_X_LPARAM(lParam);
+            p.y = GET_Y_LPARAM(lParam);
+            ScreenToClient(hWnd, &p);
+
+            MouseScrollEvent ev(p.x, p.y,
+                                GET_WHEEL_DELTA_WPARAM(wParam) / (double) WHEEL_DELTA, 0, modifierState);
+            if(SendEvent(&ev))
+                return true;
+            break;
+        }
+#endif
+        case WM_ERASEBKGND:
+        {
+            if (getSuppressEraseBackground())
+                return 1;
+            return 0;
+        }
         case WM_PAINT:
         {
-            RefreshEvent ev;
+            FB::Rect bounds = getWindowPosition();
+            bounds.bottom -= bounds.top;
+            bounds.top = 0;
+            bounds.right -= bounds.left;
+            bounds.left = 0;
+            RefreshEvent ev(bounds);
             if (!SendEvent(&ev)) {
                 HDC hdc;
                 PAINTSTRUCT ps;

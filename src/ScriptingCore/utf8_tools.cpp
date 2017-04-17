@@ -14,7 +14,9 @@ Copyright 2009 Dan Weatherford, Facebook inc
 \**********************************************************/
 
 #ifdef _WIN32
-#include <windows.h>
+#include "win_targetver.h"
+#include <boost/asio.hpp>
+#include "win_common.h"
 #else
 #include "../3rdParty/utf8/utf8.h"
 #include <xlocale.h>
@@ -34,10 +36,12 @@ namespace FB {
 
     std::string wstring_to_utf8(const std::wstring& src) {
         std::string out_str;
+        std::wstring in_str;
+        utf8::replace_invalid(src.begin(), src.end(), std::back_inserter(in_str));
 #ifdef _WIN32
-        utf8::utf16to8(src.begin(), src.end(), std::back_inserter(out_str));
+        utf8::utf16to8(in_str.begin(), in_str.end(), std::back_inserter(out_str));
 #else
-        utf8::utf32to8(src.begin(), src.end(), std::back_inserter(out_str));
+        utf8::utf32to8(in_str.begin(), in_str.end(), std::back_inserter(out_str));
 #endif
         return out_str;
     }
@@ -45,10 +49,12 @@ namespace FB {
 
     std::wstring utf8_to_wstring(const std::string& src) {
         std::wstring out_str;
+        std::string in_str;
+        utf8::replace_invalid(src.begin(), src.end(), std::back_inserter(in_str));
 #ifdef _WIN32
-        utf8::utf8to16(src.begin(), src.end(), std::back_inserter(out_str));
+        utf8::utf8to16(in_str.begin(), in_str.end(), std::back_inserter(out_str));
 #else
-        utf8::utf8to32(src.begin(), src.end(), std::back_inserter(out_str));
+        utf8::utf8to32(in_str.begin(), in_str.end(), std::back_inserter(out_str));
 #endif
         return out_str;
     }

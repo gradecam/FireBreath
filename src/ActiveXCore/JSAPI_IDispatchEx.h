@@ -65,7 +65,7 @@ namespace FB { namespace ActiveX {
             IDisp_AttachEvent(JSAPI_IDispatchExBase* ptr)
                 : FB::JSFunction(FB::JSAPIPtr(), "attachEvent", FB::SecurityScope_Public), obj(ptr) { }
             FB::variant exec(const std::vector<variant>& args) {
-                if (args.size() == 2) {
+                if (args.size() >=2 && args.size() <= 3) {
                     try {
                         std::string evtName = args[0].convert_cast<std::string>();
                         FB::JSObjectPtr method(args[1].convert_cast<FB::JSObjectPtr>());
@@ -87,7 +87,7 @@ namespace FB { namespace ActiveX {
             IDisp_DetachEvent(JSAPI_IDispatchExBase* ptr)
                 : FB::JSFunction(FB::JSAPIPtr(), "detachEvent", FB::SecurityScope_Public), obj(ptr) { }
             FB::variant exec(const std::vector<variant>& args) {
-                if (args.size() == 2) {
+                if (args.size() >=2 && args.size() <= 3) {
                     try {
                         std::string evtName = args[0].convert_cast<std::string>();
                         FB::JSObjectPtr method(args[1].convert_cast<FB::JSObjectPtr>());
@@ -119,7 +119,7 @@ namespace FB { namespace ActiveX {
         {
             FB::JSAPIPtr api(m_api.lock());
             if (!api)
-                throw std::bad_cast("Invalid object");
+                throw std::bad_cast();
             return api;
         }
         ActiveXBrowserHostPtr getHost() const {

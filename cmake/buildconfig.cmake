@@ -25,8 +25,8 @@ if (WIN32)
         message(STATUS "Balanced size/speed optimization")
     endif()
 
-    set(CMAKE_C_FLAGS                            "/GF /DWIN32 /DFB_WIN=1 /DXP_WIN=1 /W3 /wd4996 /nologo /D UNICODE /D _UNICODE /D _WINDOWS /Zm256")
-    set(CMAKE_CXX_FLAGS                          "/GF /DWIN32 /DFB_WIN=1 /DXP_WIN=1 /W3 /wd4996 /nologo /EHsc /wd4290 /D UNICODE /D _UNICODE /D _WINDOWS /Zm256")
+    set(CMAKE_C_FLAGS                            "/GF /DWIN32 /D_WINDLL /DFB_WIN=1 /DXP_WIN=1 /W3 /wd4996 /nologo /D UNICODE /D _UNICODE /D _WINDOWS /Zm256 /Y-")
+    set(CMAKE_CXX_FLAGS                          "/GF /DWIN32 /D_WINDLL /DFB_WIN=1 /DXP_WIN=1 /W3 /wd4996 /nologo /EHsc /wd4290 /D UNICODE /D _UNICODE /D _WINDOWS /Zm256")
     set(CMAKE_C_FLAGS_RELEASE                    "/GL /MT ${FB_OPT_PARAM} /DNDEBUG")
     set(CMAKE_CXX_FLAGS_RELEASE                  "/GL /MT ${FB_OPT_PARAM} /DNDEBUG")
     # x64 does not support edit-and-continue.
@@ -59,14 +59,19 @@ if (WIN32)
         message(STATUS "Building with dynamic MSVC runtime")
         foreach(flag_var
                 CMAKE_CXX_FLAGS CMAKE_CXX_FLAGS_DEBUG CMAKE_CXX_FLAGS_RELEASE
-                CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO)
+                CMAKE_CXX_FLAGS_MINSIZEREL CMAKE_CXX_FLAGS_RELWITHDEBINFO
+                CMAKE_C_FLAGS CMAKE_C_FLAGS_DEBUG CMAKE_C_FLAGS_RELEASE
+                CMAKE_C_FLAGS_MINSIZEREL CMAKE_C_FLAGS_RELWITHDEBINFO
+                )
             if(${flag_var} MATCHES "/MT")
                 string(REGEX REPLACE "/MT" "/MD" ${flag_var} "${${flag_var}}")
             endif()
         endforeach(flag_var)
     endif()
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D BOOST_ALL_NO_LIB=1")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D BOOST_ALL_NO_LIB=1")
+    if ( NOT WITH_SYSTEM_BOOST )
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /D BOOST_ALL_NO_LIB=1")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /D BOOST_ALL_NO_LIB=1")
+    endif ( NOT WITH_SYSTEM_BOOST )
 endif()
 
 # We define preprocessor flags here in addition to other flags
@@ -78,8 +83,8 @@ if(UNIX)
     if(APPLE)
         # In addition, Gecko SDK on Mac OS X needs XP_MACOSX
         set(gecko_defs "${gecko_defs} -DXP_MACOSX")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DFB_MACOSX=1")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DFB_MACOSX=1")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DFB_MACOSX=1 -DUNICODE -D_UNICODE")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DFB_MACOSX=1 -DUNICODE -D_UNICODE")
     endif()
 
     if(NOT APPLE)
@@ -97,8 +102,8 @@ if(UNIX)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${gecko_defs} ${fPIC_flag}")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${gecko_defs} ${fPIC_flag}")
     if (NOT WITH_SYSTEM_BOOST)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBOOST_ALL_NO_LIB=1")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_ALL_NO_LIB=1")
+        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DBOOST_ALL_NO_LIB=1 -DUNICODE -D_UNICODE")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DBOOST_ALL_NO_LIB=1 -DUNICODE -D_UNICODE")
     endif()
 
     set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -DNDEBUG")

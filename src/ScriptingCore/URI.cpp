@@ -38,7 +38,7 @@ std::string URI::url_encode(const std::string& in) {
     std::stringstream res;
     for (size_t i = 0; i < in.size(); ++i) {
         char c = in[i];
-        if (c > 0 && (isalnum(c) ||
+        if (c > 0 && (isalnum(c) || c == '+' ||
             c == '$' || c == '-' || c == '_' || c == '.' || c == '!' ||
             c == '*' || c == '\''|| c == '(' || c == ')' || c == ',' || c == '/')) res << c;
         else {
@@ -198,8 +198,8 @@ bool URI::isLocalhost() const {
         if (fnd->first == boost::asio::ip::address_v4::loopback().to_string()) {
             return true;
         }
-        static boost::tribool lastResult = indeterminate;
-        if (lastResult != indeterminate) return lastResult;
+        static boost::tribool lastResult(boost::indeterminate);
+        if (!boost::indeterminate(lastResult)) return lastResult;
 
         boost::asio::io_service io_service;
         boost::asio::ip::tcp::resolver resolver(io_service);
@@ -228,3 +228,17 @@ void URI::parse_query_data(const std::string& in_str) {
     }
 }
 
+std::string FB::URI::UrlDirectory() const
+{
+	std::stringstream res;
+	res << protocol << string("://");
+	if (!login.empty()) res << login << "@";
+		res << domain;
+	if (port) res << ":" << boost::lexical_cast<string>(port);
+	std::string dir = res.str();
+	if (path.empty() || path[path.size()-1] == '/') return string();
+	size_t loc = path.rfind("/");
+	if (loc == std::string::npos) return path;
+	dir += path.substr(0,loc);
+	return dir;
+}

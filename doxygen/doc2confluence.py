@@ -14,7 +14,7 @@ License:    Dual license model; choose one of two:
 
 Copyright 2009 the Firebreath development team
 """
-import os, sys, SOAPpy
+import os, sys, SOAPpy, re
 from xml.dom import minidom
 from itertools import izip
 
@@ -27,7 +27,7 @@ class Doxygen2Confluence:
     inputList = {}
     pathMap = {}
     baseUrl = "/display/documentation/%s"
-    classDocsUrl = "http://classdocs.firebreath.org/"
+    classDocsUrl = "http://classdocs.firebreath.org"
     url = "http://www.firebreath.org/rpc/soap-axis/confluenceservice-v2?wsdl"
     server = SOAPpy.SOAPProxy(url)
     rpc = SOAPpy.WSDL.Proxy(url)
@@ -89,7 +89,7 @@ class Doxygen2Confluence:
             filename = "%s.html" % refId
 
         npage = {
-            "content": "{doxygen_init}{html-include:url=http://classdocs.firebreath.org/patched/%s}" % filename,
+            "content": "{doxygen_init}{html-include:url=%s/patched/%s}" % (self.classDocsUrl, filename),
             "space": page["space"],
             "title": page["title"],
         }
@@ -103,7 +103,13 @@ class Doxygen2Confluence:
         while n < 10:
             try:
                 npage["content"] = self.rpc.convertWikiToStorageFormat(self.token, npage['content'])
-                npage = self.rpc.storePage(self.token, npage)
+                cNew = re.sub(r'ac:macro-id="[a-f0-9\-]*"', '', npage["content"])
+                cOld = re.sub(r'ac:macro-id="[a-f0-9\-]*"', '', page["content"])
+                if cNew != cOld:
+                    npage = self.rpc.storePage(self.token, npage)
+                else:
+                    print "Page has not changed"
+                    npage = page
                 self.createdPages.append(npage["id"])
                 self.rpc.setContentPermissions(self.token, SOAPpy.Types.longType(long(npage["id"])), "Edit", [ {'groupName': 'confluence-administrators', 'type': 'Edit'} ])
                 break;
@@ -181,7 +187,7 @@ class Doxygen2Confluence:
                 fileText = fileText.replace(id, url)
             except UnicodeDecodeError:
                 fileText = fileText.replace(id.encode('utf8'), url.encode('utf8'))
-        fileText = fileText.replace(r'img src="', r'img src="http://classdocs.firebreath.org/')
+        fileText = fileText.replace(r'src="', r'src="' + self.classDocsUrl + '/')
 
         nf = open(os.path.join(outPath, filename), "w")
         nf.write(fileText)

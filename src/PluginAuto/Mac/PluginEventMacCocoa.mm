@@ -36,6 +36,34 @@ PluginEventMacCocoa::PluginEventMacCocoa() :
 
 PluginEventMacCocoa::~PluginEventMacCocoa() {}
 
+inline bool isMouseEvent(NPCocoaEvent* event)
+{
+    switch(event->type) {
+        case NPCocoaEventMouseDown:
+        case NPCocoaEventMouseUp:
+        case NPCocoaEventMouseMoved:
+        case NPCocoaEventMouseEntered:
+        case NPCocoaEventMouseExited:
+        case NPCocoaEventMouseDragged:
+        case NPCocoaEventScrollWheel:
+            return true;
+        default:
+            return false;
+    }
+}
+
+inline bool isMouseButtonEvent(NPCocoaEvent* event)
+{
+    switch(event->type) {
+        case NPCocoaEventMouseDown:
+        case NPCocoaEventMouseUp:
+        case NPCocoaEventScrollWheel:
+            return true;
+        default:
+            return false;
+    }
+}
+
 int16_t PluginEventMacCocoa::HandleEvent(void* event) {
     NPCocoaEvent* evt = (NPCocoaEvent*) event;
     PluginWindowMacPtr window = m_PluginWindow.lock();
@@ -51,14 +79,41 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
     if(window->SendEvent(&macEv)) {
         return true;
     }
+
+    unsigned modifierState = MouseButtonEvent::ModifierState_None;
+    if (isMouseEvent(evt)) {
+        if (evt->data.mouse.modifierFlags & NSShiftKeyMask)
+            modifierState |= MouseButtonEvent::ModifierState_Shift;
+        if (evt->data.mouse.modifierFlags & NSControlKeyMask)
+            modifierState |= MouseButtonEvent::ModifierState_Control;
+        if (evt->data.mouse.modifierFlags & NSAlternateKeyMask)
+            modifierState |= MouseButtonEvent::ModifierState_Alt;
+    }
+
+    MouseButtonEvent::MouseButton btn = MouseButtonEvent::MouseButton_None;
+    if (isMouseButtonEvent(evt)) {
+        switch(evt->data.mouse.buttonNumber) {
+            case 0:
+                btn = MouseButtonEvent::MouseButton_Left;
+                break;
+            case 1:
+                btn = MouseButtonEvent::MouseButton_Right;
+                break;
+            case 2:
+                btn = MouseButtonEvent::MouseButton_Middle;
+                break;
+        }
+    }
     
     // Otherwise process the event into FB platform agnostic events
     switch(evt->type) {
         case NPCocoaEventDrawRect: {
             if (window->getDrawingModel() == PluginWindowMac::DrawingModelCoreGraphics) {
-                FB::Rect clipRect = { evt->data.draw.y, evt->data.draw.x,
-                    evt->data.draw.y + evt->data.draw.height,
-                    evt->data.draw.x + evt->data.draw.width };
+                FB::Rect clipRect = {
+                    static_cast<int32_t>(evt->data.draw.y),
+                    static_cast<int32_t>(evt->data.draw.x),
+                    static_cast<int32_t>(evt->data.draw.y + evt->data.draw.height),
+                    static_cast<int32_t>(evt->data.draw.x + evt->data.draw.width) };
                 FB::Rect bounds = window->getWindowPosition();
                 CoreGraphicsDraw ev(evt->data.draw.context, bounds, clipRect);
                 return window->SendEvent(&ev);
@@ -72,51 +127,28 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
         case NPCocoaEventMouseDown: {
             double x = evt->data.mouse.pluginX;
             double y = evt->data.mouse.pluginY;
-            switch(evt->data.mouse.buttonNumber) {
-                case 0: {
-                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Left, x, y);
-                    return window->SendEvent(&ev);
-                    break;
-                }
-                case 1: {
-                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Right, x, y);
-                    return window->SendEvent(&ev);
-                    break;
-                }
-                case 2: {
-                    MouseDownEvent ev(MouseButtonEvent::MouseButton_Middle, x, y);
-                    return window->SendEvent(&ev);
-                    break;
-                }
+            if (evt->data.mouse.clickCount == 2) {
+                MouseDoubleClickEvent ev(btn, x, y, modifierState);
+                return window->SendEvent(&ev);
+            } else {
+                MouseDownEvent ev(btn, x, y);
+                return window->SendEvent(&ev);
             }
+            break;
         }
 
         case NPCocoaEventMouseUp: {
             double x = evt->data.mouse.pluginX;
             double y = evt->data.mouse.pluginY;
-            switch(evt->data.mouse.buttonNumber) {
-                case 0: {
-                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Left, x, y);
-                    return window->SendEvent(&ev);
-                    break;
-                }
-                case 1: {
-                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Right, x, y);
-                    return window->SendEvent(&ev);
-                    break;
-                }
-                case 2: {
-                    MouseUpEvent ev(MouseButtonEvent::MouseButton_Middle, x, y);
-                    return window->SendEvent(&ev);
-                    break;
-                }
-            }
+            MouseUpEvent ev(btn, x, y, modifierState);
+            return window->SendEvent(&ev);
+            break;
         }
 
         case NPCocoaEventMouseMoved: {
             double x = evt->data.mouse.pluginX;
             double y = evt->data.mouse.pluginY;
-            MouseMoveEvent ev(x, y);
+            MouseMoveEvent ev(x, y, modifierState);
             return window->SendEvent(&ev);
             break;
         }
@@ -140,7 +172,7 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
         case NPCocoaEventMouseDragged: {
             double x = evt->data.mouse.pluginX;
             double y = evt->data.mouse.pluginY;
-            MouseMoveEvent ev(x, y);
+            MouseMoveEvent ev(x, y, modifierState);
             return window->SendEvent(&ev);
             break;
         }
@@ -148,7 +180,7 @@ int16_t PluginEventMacCocoa::HandleEvent(void* event) {
         case NPCocoaEventScrollWheel: {
             double x = evt->data.mouse.pluginX;
             double y = evt->data.mouse.pluginY;
-            MouseScrollEvent ev(x, y, evt->data.mouse.deltaX, evt->data.mouse.deltaY);
+            MouseScrollEvent ev(x, y, evt->data.mouse.deltaX, evt->data.mouse.deltaY, modifierState);
             return window->SendEvent(&ev);
             break;
         }

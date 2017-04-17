@@ -56,6 +56,7 @@ namespace FB {
     public:
         bool hasKeyboardFocus() const { return m_focus; }
         GdkNativeWindow getWindow();
+        GdkWindow* getWidgetWindow() const;
         GtkWidget* getWidget() { return m_canvas; }
         void setBrowserWindow(GdkNativeWindow win) {  m_browserWindow = win; }
         GdkNativeWindow getBrowserWindow() { return m_browserWindow; }
@@ -71,9 +72,10 @@ namespace FB {
         GtkWidget *m_container;
         GtkWidget *m_canvas;
         bool m_focus;
+
+        static gboolean idleInvalidate(gpointer win);
 #endif
 
-    protected:
         int32_t m_x;
         int32_t m_y;
         uint32_t m_width;
