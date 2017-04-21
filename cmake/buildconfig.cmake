@@ -78,13 +78,23 @@ endif()
 # because it is the most convenient place to put them to apply
 # to all targets
 if(UNIX)
+    set(CMAKE_CXX_STANDARD 11)
+    set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
     # XP_UNIX is used by the Gecko SDK
     set(gecko_defs "-DXP_UNIX")
     if(APPLE)
-        # In addition, Gecko SDK on Mac OS X needs XP_MACOSX
         set(gecko_defs "${gecko_defs} -DXP_MACOSX")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DFB_MACOSX=1 -DUNICODE -D_UNICODE")
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DFB_MACOSX=1 -DUNICODE -D_UNICODE")
+        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -stdlib=libc++ -DFB_MACOSX=1 -DUNICODE -D_UNICODE")
+        set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LANGUAGE_STANDARD "c++11")
+        set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
+
+        if(FB_GUI_DISABLED)
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DFB_GUI_DISABLED=1")
+            set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DFB_GUI_DISABLED=1")    
+        endif()
+
     endif()
 
     if(NOT APPLE)
