@@ -65,6 +65,9 @@ namespace utf8
 
     /// The library API - functions intended to be called by the users
  
+    template <typename octet_iterator>
+    octet_iterator append(uint32_t cp, octet_iterator result);
+    
     template <typename octet_iterator, typename output_iterator>
     output_iterator replace_invalid(octet_iterator start, octet_iterator end, output_iterator out, uint32_t replacement)
     {
