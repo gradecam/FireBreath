@@ -4,12 +4,12 @@
 # The follwoing variables are optionally searched for defaults
 #  WIX_ROOT_DIR:            Base directory of WIX2 tree to use.
 #
-# The following are set after configuration is done: 
+# The following are set after configuration is done:
 #  WIX_FOUND
 #  WIX_ROOT_DIR
 #  WIX_CANDLE
 #  WIX_LIGHT
-# 
+#
 # 2009/02 Petr Pytelka (pyta at lightcomp.cz)
 #
 
@@ -20,6 +20,7 @@ if (WIN32)
         endif()
     ENDMACRO(DBG_MSG)
 
+    set(PF86 "ProgramFiles(x86)")
 
     if (NOT WIX_ROOT_DIR)
         # typical root dirs of installations, exactly one of them is used
@@ -34,24 +35,26 @@ if (WIN32)
             "$ENV{ProgramFiles}/WiX Toolset v3.6"
             "$ENV{ProgramFiles}/WiX Toolset v3.7"
             "$ENV{ProgramFiles}/WiX Toolset v3.8"
-            "$ENV{ProgramFiles(x86)}/Windows Installer XML"
-            "$ENV{ProgramFiles(x86)}/Windows Installer XML v3"
-            "$ENV{ProgramFiles(x86)}/Windows Installer XML v3.5"
-            "$ENV{ProgramFiles(x86)}/Windows Installer XML v3.6"
-            "$ENV{ProgramFiles(x86)}/WiX Toolset v3.6"
-            "$ENV{ProgramFiles(x86)}/WiX Toolset v3.7"
-            "$ENV{ProgramFiles(x86)}/WiX Toolset v3.8"
+            "$ENV{ProgramFiles}/WiX Toolset v3.9"
+            "$ENV{${PF86}}/Windows Installer XML"
+            "$ENV{${PF86}}/Windows Installer XML v3"
+            "$ENV{${PF86}}/Windows Installer XML v3.5"
+            "$ENV{${PF86}}/Windows Installer XML v3.6"
+            "$ENV{${PF86}}/WiX Toolset v3.6"
+            "$ENV{${PF86}}/WiX Toolset v3.7"
+            "$ENV{${PF86}}/WiX Toolset v3.8"
+            "$ENV{${PF86}}/WiX Toolset v3.9"
             )
 
 
         #DBG_MSG("DBG (WIX_POSSIBLE_ROOT_DIRS=${WIX_POSSIBLE_ROOT_DIRS}")
 
         #
-        # select exactly ONE WIX base directory/tree 
+        # select exactly ONE WIX base directory/tree
         # to avoid mixing different version headers and libs
         #
-        FIND_PATH(WIX_ROOT_DIR 
-            NAMES 
+        FIND_PATH(WIX_ROOT_DIR
+            NAMES
             bin/candle.exe
             bin/light.exe
             bin/heat.exe
@@ -102,7 +105,7 @@ if (WIN32)
     #  _sources - name of list with sources
     #  _obj - name of list for target objects
     #
-    MACRO(WIX_COMPILE _sources _objs _extra_dep)
+    MACRO(WIX_COMPILE _sources _objs _extra_dep EXTRA_EXTENSIONS)
         DBG_MSG("WIX compile: ${${_sources}}")
         FOREACH (_current_FILE ${${_sources}})
             GET_FILENAME_COMPONENT(_tmp_FILE ${_current_FILE} ABSOLUTE)
@@ -117,8 +120,11 @@ if (WIN32)
             DBG_MSG("WIX command: ${WIX_CANDLE}")
             SET(EXT_FLAGS -ext WixUtilExtension)
             SET(EXT_FLAGS ${EXT_FLAGS} -ext WixUIExtension)
+            FOREACH (CUR_EXT ${EXTRA_EXTENSIONS})
+                set(EXT_FLAGS ${EXT_FLAGS} -ext "${CUR_EXT}")
+            endforeach(CUR_EXT)
 
-            ADD_CUSTOM_COMMAND( 
+            ADD_CUSTOM_COMMAND(
                 OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
                 COMMAND   ${WIX_CANDLE}
                 ARGS      ${WIX_CANDLE_FLAGS} ${EXT_FLAGS} ${SOURCE_WIX_FILE}
@@ -130,6 +136,8 @@ if (WIN32)
 
         ENDFOREACH (_current_FILE)
     ENDMACRO(WIX_COMPILE)
+
+
 
     #
     # Call wix heat command for the specified DLLs
@@ -144,18 +152,19 @@ if (WIN32)
             GET_FILENAME_COMPONENT(_tmp_FILE ${_current_DLL} ABSOLUTE)
             GET_FILENAME_COMPONENT(_basename ${_tmp_FILE} NAME_WE)
 
-            SET (SOURCE_WIX_FILE ${_tmp_FILE} )
+            SET (SOURCE_WIX_FILE ${_current_DLL} )
 
             if (NOT WIX_HEAT_SUFFIX)
                 set(WIX_HEAT_SUFFIX "_auto")
             endif()
 
             SET (OUTPUT_WIXOBJ ${_basename}${WIX_HEAT_SUFFIX}.wxs )
+            STRING(REGEX REPLACE "\\\$\\<TARGET[^:]*:([^>]*)>" "\\1" OUTPUT_WIXOBJ ${OUTPUT_WIXOBJ})
 
             DBG_MSG("WIX output: ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
-            DBG_MSG("WIX command: ${WIX_HEAT}")
+            DBG_MSG("WIX command: ${WIX_HEAT} ${SOURCE_WIX_FILE} -> ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}")
 
-            ADD_CUSTOM_COMMAND( 
+            ADD_CUSTOM_COMMAND(
                 OUTPUT    ${CMAKE_CURRENT_BINARY_DIR}/${OUTPUT_WIXOBJ}
                 COMMAND   ${WIX_HEAT}
                 ARGS      file ${SOURCE_WIX_FILE}
@@ -169,28 +178,6 @@ if (WIN32)
         DBG_MSG("WIX compile output: ${${_objs}}")
     ENDMACRO(WIX_HEAT)
 
-    #
-    # Call wix compiler
-    #
-    # Parameters:
-    #  _sources - name of list with sources
-    #  _obj - name of list for target objects
-    #
-    MACRO(WIX_COMPILE_ALL _target _sources _extra_dep)
-        DBG_MSG("WIX compile all: ${${_sources}}, dependencies: ${${_extra_dep}}")
-        SET(EXT_FLAGS -ext WixUtilExtension)
-        SET(EXT_FLAGS ${EXT_FLAGS} -ext WixUIExtension)
-
-        ADD_CUSTOM_COMMAND( 
-            OUTPUT    ${_target}
-            COMMAND   ${WIX_CANDLE}
-            ARGS      ${WIX_CANDLE_FLAGS} ${EXT_FLAGS} -out "${_target}" ${${_sources}}
-            DEPENDS   ${${_sources}} ${${_extra_dep}}
-            COMMENT   "Compiling ${${_sources}} -> ${_target}"
-            )
-
-    ENDMACRO(WIX_COMPILE_ALL)
-
 
     #
     # Link MSI file as post-build action
@@ -199,12 +186,15 @@ if (WIN32)
     #  _target - Name of target file
     #  _sources - Name of list with sources
     #
-    MACRO(WIX_LINK _project _target _sources _loc_files)
+    MACRO(WIX_LINK _project _target _sources _loc_files EXTRA_EXTENSIONS)
         #DBG_MSG("WIX command: ${WIX_LIGHT}\n WIX target: ${_target} objs: ${${_sources}}")
 
-        SET( WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS} )
+        SET(WIX_LINK_FLAGS_A ${WIX_LINK_FLAGS} -sice:ICE80)
         SET(EXT_FLAGS -ext WixUtilExtension)
         SET(EXT_FLAGS ${EXT_FLAGS} -ext WixUIExtension)
+        FOREACH (CUR_EXT ${EXTRA_EXTENSIONS})
+            set(EXT_FLAGS ${EXT_FLAGS} -ext "${CUR_EXT}")
+        endforeach(CUR_EXT)
 
         # Add localization
         FOREACH (_current_FILE ${${_loc_files}})
@@ -213,7 +203,7 @@ if (WIN32)
         ENDFOREACH (_current_FILE)
         DBG_MSG("WIX link flags: ${WIX_LINK_FLAGS_A}")
 
-        ADD_CUSTOM_COMMAND( TARGET    ${_project} POST_BUILD
+        ADD_CUSTOM_COMMAND( TARGET ${_project} POST_BUILD
             COMMAND   ${WIX_LIGHT}
             ARGS      ${WIX_LIGHT_FLAGS} ${WIX_LINK_FLAGS_A} ${EXT_FLAGS} -out "${_target}" ${${_sources}}
             DEPENDS   ${${_sources}}
@@ -221,7 +211,7 @@ if (WIN32)
             )
 
     ENDMACRO(WIX_LINK)
-    
+
     #
     # Create
     #
